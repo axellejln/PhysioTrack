@@ -18,7 +18,7 @@ def band_power(freqs, fft_values, band):
 
 
 def compute_band_energy(freqs, fft_values):
-    bands = {"Delta": (1, 4), "Theta": (4, 8), "Alpha": (8, 12),
-             "Beta": (12, 30), "Gamma": (30, 40)}
+    bands = {"Delta \n(1-4 Hz)": (1, 4), "Theta \n(4-8 Hz)": (4, 8), "Alpha \n(8-12 Hz)": (8, 12),
+             "Beta \n(12-30 Hz)": (12, 30), "Gamma \n(30-40 Hz)": (30, 40)}
     band_energy = {name: band_power(freqs, fft_values, band) for name, band in bands.items()}
     return band_energy

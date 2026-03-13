@@ -1,5 +1,3 @@
-# src/eeg/analysis_pipeline.py
-
 from numpy import info
 from matplotlib import pyplot as plt
 

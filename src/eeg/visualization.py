@@ -59,6 +59,7 @@ def plot_spectrogram(raw, channel_name):
     data = raw.copy().pick(channel_name).get_data()[0]
     sfreq = raw.info["sfreq"]
     freqs, times, Sxx = spectrogram(data, sfreq)
+    #Sxx = 10 * np.log10(Sxx)
     fig, ax = plt.subplots()
     im = ax.pcolormesh(times, freqs, Sxx, shading="gouraud")
     ax.set_ylabel("Fréquence (Hz)")
