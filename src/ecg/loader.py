@@ -66,22 +66,37 @@ def load_ibi(filepath):
 def load_hr(filepath):
     ext = os.path.splitext(filepath)[1].lower()
     if ext not in [".csv", ".txt"]:
-        raise ValueError(f"Format non supporté pour HR : {ext}")
+        raise ValueError(f"Format non supporte pour HR : {ext}")
+
+    # Detection format E4 : ligne 1 = timestamp Unix, ligne 2 = sfreq
+    skiprows = 0
+    sfreq_e4 = None
+    with open(filepath, "r") as f:
+        lines = f.readlines()
+    try:
+        first_val = float(lines[0].strip().split(",")[0])
+        second_val = float(lines[1].strip().split(",")[0])
+        if first_val > 1e9:  # timestamp Unix detecte
+            skiprows = 2
+            sfreq_e4 = second_val
+    except Exception:
+        pass
 
     try:
-        df = pd.read_csv(filepath)
+        df = pd.read_csv(filepath, header=None, skiprows=skiprows)
     except Exception:
-        df = pd.read_csv(filepath, header=None, skiprows=1)
+        df = pd.read_csv(filepath, header=None, skiprows=skiprows + 1)
 
     df = df.apply(pd.to_numeric, errors="coerce")
     df = df.dropna(axis=1, how="all")
 
     if df.shape[1] >= 2:
-        hr_times = df.iloc[:, 0].values.astype(float)
+        hr_times  = df.iloc[:, 0].values.astype(float)
         hr_values = df.iloc[:, 1].values.astype(float)
     else:
         hr_values = df.iloc[:, 0].values.astype(float)
-        hr_times = np.arange(len(hr_values), dtype=float)  # 1 valeur/sec
+        sfreq_used = sfreq_e4 if sfreq_e4 else 1.0
+        hr_times = np.arange(len(hr_values), dtype=float) / sfreq_used
 
     return hr_times, hr_values
 

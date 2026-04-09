@@ -37,6 +37,10 @@ def load_eeg_generic(file_path, sfreq=None, ch_names=None):
         # Supprimer les colonnes entièrement vides
         df = df.dropna(axis=1, how='all')
 
+        first_col = df.iloc[:, 0].values
+        if len(first_col) > 1 and np.all(np.diff(first_col) > 0):
+            df = df.iloc[:, 1:]  # supprimer la colonne temps
+
         # Transposer pour avoir shape (n_channels x n_times)
         data = df.values.T
 
