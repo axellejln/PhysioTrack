@@ -9,7 +9,7 @@ import io
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from src.eeg.loader import load_eeg_generic, get_eeg_info
+from src.eeg.loader import load_eeg_generic
 from src.eeg.preprocessing import bandpass_filter
 from src.eeg.analysis import compute_fft, compute_band_energy
 from src.eeg.visualization import (
@@ -18,13 +18,11 @@ from src.eeg.visualization import (
 )
 
 st.set_page_config(page_title="EEG - PhysioTrack", page_icon="🧠", layout="centered")
-st.title("🧠 Analyse EEG")
+st.title("Analyse EEG")
 
-# ────────────────────────────────────────────────────────────────────────────
-# ÉTAPE 1 — Import du fichier
-# ────────────────────────────────────────────────────────────────────────────
+## IMPORTER UN SIGNAL 
 
-with st.expander("📋 Formats de fichiers acceptés — cliquez pour en savoir plus"):
+with st.expander("Formats de fichiers acceptés : cliquez pour en savoir plus"):
     st.markdown("""
 **Formats natifs** *(aucune configuration)* : `.edf`, `.bdf`, `.vhdr` (BrainVision), `.set` (EEGLAB), `.fif` (MNE)
 
@@ -48,9 +46,7 @@ if uploaded_file is None:
 
 ext = os.path.splitext(uploaded_file.name)[1].lower()
 
-# ────────────────────────────────────────────────────────────────────────────
-# ÉTAPE 2 — Paramètres CSV/TXT AVANT chargement
-# ────────────────────────────────────────────────────────────────────────────
+## CONFIGURATION POUR CSV/TXT
 sfreq = None
 ch_names_input = None
 
@@ -68,10 +64,10 @@ if ext in [".csv", ".txt"]:
     first_col = df_preview.iloc[:, 0].values
     has_time_col = bool(np.all(np.diff(first_col) > 0))
 
-    st.info(f"Fichier CSV/TXT détecté — **{n_cols} colonne(s)** trouvée(s).")
+    st.info(f"Fichier CSV/TXT détecté : **{n_cols} colonne(s)** trouvée(s).")
 
-    # ── ① Noms des électrodes ─────────────────────────────────────────────────
-    st.subheader("① Noms des électrodes")
+    # Noms des électrodes
+    st.subheader("Noms des électrodes")
     n_signal_cols = n_cols - 1 if has_time_col else n_cols
     st.caption(
         f"{'1ère colonne = temps détectée automatiquement. ' if has_time_col else ''}"
@@ -80,7 +76,7 @@ if ext in [".csv", ".txt"]:
 
     default_names = ", ".join([f"Ch{i+1}" for i in range(n_signal_cols)])
     ch_names_str = st.text_input(
-        f"Noms des électrodes — séparés par des virgules ({n_signal_cols} attendu(s))",
+        f"Entrez les noms des électrodes séparés par des virgules ({n_signal_cols} attendu(s))",
         value=default_names,
         help="Ex : Fp1, Fp2, F3, F4, C3, C4"
     )
@@ -93,7 +89,7 @@ if ext in [".csv", ".txt"]:
         )
         st.stop()
 
-    # ── ② Fréquence d'échantillonnage ─────────────────────────────────────────
+    # Fréquence d'échantillonnage 
     st.subheader("② Fréquence d'échantillonnage")
     if has_time_col:
         sfreq = 1.0 / np.mean(np.diff(first_col))
@@ -111,9 +107,7 @@ if ext in [".csv", ".txt"]:
     uploaded_file = io.BytesIO(file_bytes)
     uploaded_file.name = f"signal{ext}"  # attribut nécessaire pour os.path.splitext
 
-# ────────────────────────────────────────────────────────────────────────────
-# ÉTAPE 3 — Chargement
-# ────────────────────────────────────────────────────────────────────────────
+## Chargement signal 
 with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
     if hasattr(uploaded_file, 'seek'):
         uploaded_file.seek(0)
@@ -127,7 +121,7 @@ except Exception as e:
     st.error(f"Erreur lors du chargement : {e}")
     st.stop()
 
-# ── Infos signal ──────────────────────────────────────────────────────────────
+# Informations du signal
 st.subheader("Informations du signal")
 col1, col2, col3 = st.columns(3)
 col1.metric("Canaux", len(raw.ch_names))
@@ -136,9 +130,8 @@ col3.metric("Fréquence d'échantillonnage", f"{raw.info['sfreq']:.0f} Hz")
 
 st.divider()
 
-# ────────────────────────────────────────────────────────────────────────────
-# ÉTAPE 4 — Visualisation multi-canaux
-# ────────────────────────────────────────────────────────────────────────────
+## VISUALISATION MULTICANAL
+
 st.header("Visualisation de plusieurs canaux")
 
 selected_channels = st.multiselect(
@@ -157,9 +150,7 @@ if st.button("Afficher les canaux sélectionnés"):
 
 st.divider()
 
-# ────────────────────────────────────────────────────────────────────────────
-# ÉTAPE 5 — Analyse d'un canal
-# ────────────────────────────────────────────────────────────────────────────
+## ANALYSE D'UN CANAL
 st.header("Analyse d'un canal")
 
 channel = st.selectbox("Canal à analyser", raw.ch_names)
@@ -199,9 +190,7 @@ if st.button("Analyser le canal"):
     st.session_state["_fft_zoom_min"] = 0.0
     st.session_state["_fft_zoom_max"] = float(freqs[-1])
 
-# ────────────────────────────────────────────────────────────────────────────
-# AFFICHAGE — depuis session_state pour survivre aux interactions de zoom
-# ────────────────────────────────────────────────────────────────────────────
+## Affichage des résultats (signal filtré, FFT, énergie par bande)
 if "eeg_results" not in st.session_state:
     st.stop()
 
@@ -216,45 +205,34 @@ freqs        = r["freqs"]
 fft_vals     = r["fft_vals"]
 band_energy  = r["band_energy"]
 
-# ── Signal brut + filtré côte à côte ─────────────────────────────────────────
+#  Signal brut + filtré côte à côte 
 st.subheader("Signal brut  vs  Signal filtré")
 
 col_sig1, col_sig2 = st.columns(2)
 
 with col_sig1:
     st.caption("**Signal brut**")
-    fig_raw, ax_raw = plt.subplots(figsize=(5, 3))
-    data_raw = raw.copy().pick(channel).get_data()[0]
-    ax_raw.plot(raw.times, data_raw, linewidth=0.6, color="steelblue")
-    ax_raw.set_xlabel("Temps (s)", fontsize=8)
-    ax_raw.set_ylabel("Amplitude", fontsize=8)
-    ax_raw.set_title(f"{channel} — brut", fontsize=9)
-    ax_raw.tick_params(labelsize=7)
-    plt.tight_layout()
+    fig_raw = plot_signal(raw.copy().pick(channel), channel, color="steelblue")
     st.pyplot(fig_raw)
 
 with col_sig2:
     st.caption(f"**Signal filtré ({fmin}–{fmax} Hz)**")
-    fig_filt, ax_filt = plt.subplots(figsize=(5, 3))
-    data_filt = raw_filtered.copy().get_data()[0]
-    times_filt = raw_filtered.times + tmin
-    ax_filt.plot(times_filt, data_filt, linewidth=0.6, color="crimson")
-    ax_filt.set_xlabel("Temps (s)", fontsize=8)
-    ax_filt.set_ylabel("Amplitude", fontsize=8)
-    ax_filt.set_title(f"{channel} — filtré ({fmin}–{fmax} Hz)", fontsize=9)
-    ax_filt.tick_params(labelsize=7)
-    plt.tight_layout()
+    fig_filt = plot_signal(
+        raw_filtered, channel,
+        original_times=raw_filtered.times + tmin,
+        color="crimson"
+    )
     st.pyplot(fig_filt)
 
 st.divider()
 
-# ── FFT avec zoom interactif ──────────────────────────────────────────────────
-st.subheader("FFT — Spectre de fréquences")
+# FFT avec zoom interactif et bandes EEG colorées
+st.subheader("FFT : Spectre de fréquences")
 
 col_z1, col_z2, col_z3 = st.columns([2, 2, 1])
 with col_z1:
     fft_zoom_min = st.number_input(
-        "Zoom — fréq. min (Hz)",
+        "Zoom : fréq. min (Hz)",
         min_value=0.0,
         max_value=float(freqs[-1]),
         value=float(st.session_state.get("_fft_zoom_min", 0.0)),
@@ -262,7 +240,7 @@ with col_z1:
     )
 with col_z2:
     fft_zoom_max = st.number_input(
-        "Zoom — fréq. max (Hz)",
+        "Zoom : fréq. max (Hz)",
         min_value=0.0,
         max_value=float(freqs[-1]),
         value=float(st.session_state.get("_fft_zoom_max", float(freqs[-1]))),
@@ -286,51 +264,20 @@ zoom_mask  = (freqs >= fft_zoom_min) & (freqs <= fft_zoom_max)
 freqs_zoom = freqs[zoom_mask]
 fft_zoom   = fft_vals[zoom_mask]
 
-fig_fft, ax_fft = plt.subplots(figsize=(10, 3))
-ax_fft.plot(freqs_zoom, fft_zoom, linewidth=0.8, color="darkorange")
-ax_fft.set_xlabel("Fréquence (Hz)")
-ax_fft.set_ylabel("Amplitude")
-ax_fft.set_title(f"FFT — {channel}  [{fft_zoom_min:.0f}–{fft_zoom_max:.0f} Hz]")
-
-# Zones colorées pour les bandes EEG visibles dans la fenêtre de zoom
-bands_display = {
-    "δ (1-4)":  (1,  4,  "#4e79a7"),
-    "θ (4-8)":  (4,  8,  "#f28e2b"),
-    "α (8-12)": (8,  12, "#e15759"),
-    "β (12-30)":(12, 30, "#76b7b2"),
-    "γ (30-40)":(30, 40, "#59a14f"),
-}
-for label, (lo, hi, color) in bands_display.items():
-    lo_v = max(lo, fft_zoom_min)
-    hi_v = min(hi, fft_zoom_max)
-    if lo_v < hi_v:
-        ax_fft.axvspan(lo_v, hi_v, alpha=0.10, color=color, label=label)
-
-ax_fft.legend(fontsize=7, loc="upper right")
-plt.tight_layout()
+fig_fft = plot_fft(freqs, fft_vals, channel,
+                   zoom_min=fft_zoom_min, zoom_max=fft_zoom_max)
 st.pyplot(fig_fft)
 
 st.divider()
 
-# ── Spectrogramme limité à fmax ───────────────────────────────────────────────
+# Spectrogramme limité à fmax 
 st.subheader("Spectrogramme")
-from scipy.signal import spectrogram as scipy_spectrogram
-data_spec = raw_filtered.copy().get_data()[0]
-sfreq_spec = raw_filtered.info["sfreq"]
-freqs_spec, times_spec, Sxx = scipy_spectrogram(data_spec, sfreq_spec)
-fig_spec, ax_spec = plt.subplots(figsize=(10, 4))
-im = ax_spec.pcolormesh(times_spec, freqs_spec, Sxx, shading="gouraud")
-ax_spec.set_ylim(0, fmax)  # limiter à fmax du filtre
-ax_spec.set_ylabel("Fréquence (Hz)")
-ax_spec.set_xlabel("Temps (s)")
-ax_spec.set_title(f"Spectrogramme — {channel}  [0–{fmax} Hz]")
-fig_spec.colorbar(im, ax=ax_spec)
-plt.tight_layout()
+fig_spec = plot_spectrogram(raw_filtered, channel, fmax=fmax)
 st.pyplot(fig_spec)
 
 st.divider()
 
-# ── Énergie par bande + tableau côte à côte ───────────────────────────────────
+# Énergie par bande + tableau côte à côte 
 st.subheader("Énergie par bande de fréquence")
 
 col_b1, col_b2 = st.columns([2, 1])
@@ -345,22 +292,11 @@ with col_b2:
     df_band["Énergie"] = df_band["Énergie"].round(2)
     st.dataframe(df_band, use_container_width=True, hide_index=True)
 
-    # Avertissement si des bandes sont hors de la plage de filtre
-    bandes_zero = df_band[df_band["Énergie"] == 0]["Bande"].tolist()
-    if bandes_zero:
-        st.caption(
-            f"⚠️ Les bandes affichant 0 ({', '.join(bandes_zero)}) sont "
-            f"hors de la plage de filtre ({fmin}–{fmax} Hz)."
-        )
 
 st.divider()
 
 # ── Export ────────────────────────────────────────────────────────────────────
-st.header("📥 Exporter les résultats")
-
-
-# -- Données CSV --------------------------------------------------------------
-st.subheader("Données (CSV)")
+st.header("Exporter les résultats")
 
 # Signal filtré
 data_filt_export = raw_filtered.copy().get_data()[0]

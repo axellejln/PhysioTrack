@@ -5,7 +5,6 @@ import sys
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import io
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
@@ -19,24 +18,22 @@ from src.ecg.visualization import (
     plot_poincare, plot_fft, plot_band_energy, plot_hr
 )
 
-st.set_page_config(page_title="ECG - PhysioTrack", page_icon="❤️", layout="centered")
-st.title("❤️ Analyse ECG")
+st.set_page_config(page_title="ECG - PhysioTrack", layout="centered")
+st.title("Analyse ECG")
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ÉTAPE 1 — Mode d'import
-# ─────────────────────────────────────────────────────────────────────────────
+## IMPORTER UN SIGNAL
 import_mode = st.radio(
     "Type de fichier à importer",
     ["Signal ECG brut (CSV/TXT)", "Fichier IBI", "Fichier HR"],
     horizontal=True
 )
 
-with st.expander("📋 Format de fichier attendu — cliquez pour en savoir plus"):
+with st.expander("Format de fichier attendu : cliquez pour en savoir plus"):
 
     if import_mode == "Signal ECG brut (CSV/TXT)":
         st.markdown("""
 CSV avec **1 colonne signal** (forme d'onde en mV/µV), optionnellement précédée d'une colonne temps.
-Si pas de colonne temps → sfreq à renseigner manuellement. ⚠️ Pas des valeurs BPM — utilisez **Fichier HR** pour ça.
+Si pas de colonne temps → sfreq à renseigner manuellement. ⚠️ Pas des valeurs BPM : utilisez **Fichier HR** pour ça.
 ```
 temps,ECG          # ou juste une colonne ECG sans temps
 0.000,0.0023
@@ -49,8 +46,8 @@ temps,ECG          # ou juste une colonne ECG sans temps
 CSV avec les intervalles inter-battements en **secondes** (ou ms, converti auto si valeurs > 10).
 Formats acceptés : `temps,IBI` / `IBI` seul / format **Empatica E4** (timestamp Unix en ligne 1, détecté auto).
 ```
-1544027337.000000, IBI    # format E4 — ou simplement :
-84.847634,0.468771        # temps(s), IBI(s)
+1544027337.000000, IBI    # format E4 
+84.847634,0.468771        # ou temps(s), IBI(s)
 85.347657,0.500023
 ```
         """)
@@ -66,15 +63,13 @@ temps,HR    # ou juste une colonne HR
 ```
         """)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ÉTAPE 2 — Import selon le mode
-# ─────────────────────────────────────────────────────────────────────────────
+# import selon le mode choisi
 signal = None
 sfreq  = None
 times  = None
 mode   = None
 
-# ── ECG brut ─────────────────────────────────────────────────────────────────
+# ECG brut
 if import_mode == "Signal ECG brut (CSV/TXT)":
     mode = "ecg"
     uploaded = st.file_uploader("Importer un fichier ECG", type=["csv", "txt"], key="ecg_raw")
@@ -93,7 +88,7 @@ if import_mode == "Signal ECG brut (CSV/TXT)":
         except Exception as e:
             st.error(f"Erreur : {e}")
 
-# ── IBI ───────────────────────────────────────────────────────────────────────
+# IBI 
 elif import_mode == "Fichier IBI":
     mode = "ibi"
     uploaded = st.file_uploader("Importer un fichier IBI", type=["csv", "txt"], key="ecg_ibi")
@@ -119,7 +114,7 @@ elif import_mode == "Fichier IBI":
             rr_ms_ibi = ibi_values * 1000
             bpm_reconstructed = 60.0 / ibi_values
 
-            # ── Vue globale ──────────────────────────────────────────────────
+            # Vue globale 
             st.subheader("Vue globale")
             col_ibi1, col_ibi2 = st.columns(2)
 
@@ -155,8 +150,8 @@ elif import_mode == "Fichier IBI":
                 plt.tight_layout()
                 st.pyplot(fig_bpm)
 
-            # ── Zoom pics R sur segment ──────────────────────────────────────
-            st.subheader("Pics R — zoom sur un segment")
+            # Zoom pics R sur segment 
+            st.subheader("Pics R : zoom sur un segment")
             st.caption("Sélectionnez une fenêtre courte pour visualiser les pics R individuels.")
 
             duree_totale = float(r_peaks_times[-1])
@@ -208,7 +203,7 @@ elif import_mode == "Fichier IBI":
 
             # Export HRV
             st.divider()
-            st.subheader("📥 Exporter")
+            st.subheader("Exporter")
             st.download_button(
                 "Tableau HRV (CSV)",
                 hrv_df.to_csv(index=False).encode("utf-8"),
@@ -219,7 +214,7 @@ elif import_mode == "Fichier IBI":
         except Exception as e:
             st.error(f"Erreur : {e}")
 
-# ── HR ────────────────────────────────────────────────────────────────────────
+# HR 
 elif import_mode == "Fichier HR":
     mode = "hr"
     uploaded = st.file_uploader("Importer un fichier HR", type=["csv", "txt"], key="ecg_hr")
@@ -251,9 +246,7 @@ elif import_mode == "Fichier HR":
         except Exception as e:
             st.error(f"Erreur : {e}")
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ÉTAPE 3 — Analyse (modes ECG brut et HR)
-# ─────────────────────────────────────────────────────────────────────────────
+# Affichage du signal brut (ECG brut ou HR) + bouton d'analyse
 if signal is not None and mode in ["ecg", "hr"]:
     st.divider()
 
@@ -314,9 +307,7 @@ if signal is not None and mode in ["ecg", "hr"]:
         except Exception as e:
             st.error(f"Erreur lors de l'analyse : {e}")
 
-# ─────────────────────────────────────────────────────────────────────────────
-# AFFICHAGE — depuis session_state
-# ─────────────────────────────────────────────────────────────────────────────
+## AFICHAGE DES RÉSULTATS
 if "ecg_results" not in st.session_state:
     st.stop()
 
@@ -333,7 +324,7 @@ band_energy= r["band_energy"]
 hrv        = r["hrv"]
 mode       = r["mode"]
 
-# ── Signal brut vs nettoyé côte à côte ───────────────────────────────────────
+# Signal brut vs nettoyé côte à côte
 st.subheader("Signal brut  vs  Signal nettoyé")
 col_s1, col_s2 = st.columns(2)
 
@@ -378,7 +369,7 @@ with col_s2:
 
 st.divider()
 
-# ── Intervalles RR + Poincaré côte à côte ────────────────────────────────────
+# Intervalles RR + Poincaré côte à côte 
 st.subheader("Intervalles RR")
 col_rr1, col_rr2 = st.columns([3, 2])
 
@@ -392,7 +383,7 @@ with col_rr2:
 
 st.divider()
 
-# ── HRV ──────────────────────────────────────────────────────────────────────
+# HRV + tableau côte à côte
 st.subheader("Variabilité de la fréquence cardiaque (HRV)")
 
 # Métriques principales en haut
@@ -408,20 +399,20 @@ st.dataframe(hrv_df, use_container_width=True, hide_index=True)
 
 st.divider()
 
-# ── FFT avec zoom ─────────────────────────────────────────────────────────────
-st.subheader("FFT — Spectre de fréquences")
+# FFT avec zoom 
+st.subheader("FFT : Spectre de fréquences")
 
 col_z1, col_z2, col_z3 = st.columns([2, 2, 1])
 with col_z1:
     fft_zoom_min = st.number_input(
-        "Zoom — fréq. min (Hz)",
+        "Zoom : fréq. min (Hz)",
         min_value=0.0, max_value=float(freqs[-1]),
         value=float(st.session_state.get("_ecg_fft_zoom_min", 0.0)),
         step=0.01, format="%.3f"
     )
 with col_z2:
     fft_zoom_max = st.number_input(
-        "Zoom — fréq. max (Hz)",
+        "Zoom : fréq. max (Hz)",
         min_value=0.0, max_value=float(freqs[-1]),
         value=float(st.session_state.get("_ecg_fft_zoom_max", float(freqs[-1]))),
         step=0.01, format="%.3f"
@@ -442,7 +433,7 @@ st.pyplot(fig_fft)
 
 st.divider()
 
-# ── Énergie par bande ─────────────────────────────────────────────────────────
+# Énergie par bande + tableau côte à côte
 st.subheader("Énergie par bande (VLF / LF / HF)")
 
 col_b1, col_b2 = st.columns([2, 1])
@@ -456,8 +447,8 @@ with col_b2:
 
 st.divider()
 
-# ── Export CSV ────────────────────────────────────────────────────────────────
-st.header("📥 Exporter les résultats")
+# Export CSV
+st.header("Exporter les résultats")
 
 col_e1, col_e2, col_e3 = st.columns(3)
 

@@ -13,8 +13,8 @@ from src.eeg.loader import load_eeg_generic
 from src.ecg.loader import load_ecg, load_ibi, load_hr
 from src.eda.loader import load_eda
 
-st.set_page_config(page_title="Comparaison - PhysioTrack", page_icon="📊", layout="centered")
-st.title("📊 Comparaison multi-signaux")
+st.set_page_config(page_title="Comparaison - PhysioTrack", layout="centered")
+st.title("Comparaison multi-signaux")
 st.caption("Visualisez plusieurs signaux physiologiques sur une timeline commune.")
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -84,10 +84,8 @@ def normalize(x):
 COLORS = ["steelblue", "crimson", "seagreen"]
 SIGNAL_TYPES = ["EEG", "ECG", "EDA", "HR", "IBI"]
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ÉTAPE 1 — Import des signaux
-# ─────────────────────────────────────────────────────────────────────────────
-st.header("① Importer les signaux")
+# IMPORT DES SIGNAUX
+st.header("Importer les signaux")
 st.caption(
     "Importez jusqu'à 3 signaux. Pour chaque signal, indiquez son type "
     "et son heure de début pour synchroniser la timeline."
@@ -129,16 +127,14 @@ for i in range(n_signals):
                 "color":    COLORS[i],
             })
             ts_info = f" | timestamp : {unix_ts:.0f}" if unix_ts else " | pas de timestamp"
-            st.success(f"✅ Chargé — {len(sig)} points, {times[-1]:.1f}s, {sfreq:.1f} Hz{ts_info}")
+            st.success(f"✅ Chargé : {len(sig)} points, {times[-1]:.1f}s, {sfreq:.1f} Hz{ts_info}")
         except Exception as e:
             st.error(f"Erreur : {e}")
 
     if i < n_signals - 1:
         st.divider()
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ÉTAPE 2 — Synchronisation + Visualisation
-# ─────────────────────────────────────────────────────────────────────────────
+## Synchronisation des signaux et visualisation sur timeline commune
 if len(signals_raw) == 0:
     st.stop()
 
@@ -153,16 +149,16 @@ if len(unix_timestamps) == len(signals_raw) and len(unix_timestamps) > 0:
         t_offset = d["unix_ts"] - ts_min
         signals_data.append({**d, "times": d["times"] + t_offset, "t_start": t_offset})
     offsets = ", ".join([f"{d['label']} : +{d['t_start']:.1f}s" for d in signals_data])
-    st.info(f"🔄 Synchronisation automatique — décalages détectés : {offsets}")
+    st.info(f"🔄 Synchronisation automatique : décalages détectés : {offsets}")
 else:
     # Pas de timestamp → affichage sans synchronisation
     for d in signals_raw:
         signals_data.append({**d, "t_start": 0.0})
     if len(signals_raw) > 1:
-        st.warning("⚠️ Certains fichiers n'ont pas de timestamp — signaux affichés sans synchronisation.")
+        st.warning("⚠️ Certains fichiers n'ont pas de timestamp : signaux affichés sans synchronisation.")
 
 st.divider()
-st.header("② Visualisation sur timeline commune")
+st.header("Visualisation sur timeline commune")
 
 t_global_max = max(d["times"][-1] for d in signals_data)
 
@@ -176,7 +172,7 @@ if st.session_state.get("_comp_t_max") != t_global_max:
 col_z1, col_z2, col_z3 = st.columns([2, 2, 1])
 with col_z1:
     view_start = st.number_input(
-        "Zoom — début (s)",
+        "Zoom : début (s)",
         min_value=0.0,
         max_value=float(t_global_max),
         value=float(st.session_state.get("_comp_zoom_start", 0.0)),
@@ -184,7 +180,7 @@ with col_z1:
     )
 with col_z2:
     view_end = st.number_input(
-        "Zoom — fin (s)",
+        "Zoom : fin (s)",
         min_value=0.0,
         max_value=float(t_global_max),
         value=float(st.session_state.get("_comp_zoom_end", t_global_max)),
@@ -208,7 +204,7 @@ normalize_signals = st.checkbox(
     help="Permet de comparer des signaux d'amplitudes très différentes sur le même axe"
 )
 
-# ── Graphe multi-signaux avec axe partagé ─────────────────────────────────────
+# Graphe multi-signaux 
 n = len(signals_data)
 fig, axes = plt.subplots(n, 1, figsize=(12, 3 * n), sharex=True)
 if n == 1:
@@ -227,7 +223,7 @@ for i, d in enumerate(signals_data):
     y_plot = normalize(s_plot) if normalize_signals else s_plot
     axes[i].plot(t_plot, y_plot, color=d["color"], linewidth=0.8)
     axes[i].set_ylabel("Norm. [0-1]" if normalize_signals else "Amplitude", fontsize=8)
-    axes[i].set_title(f"{d['label']}  ({d['type']}) — {d['sfreq']:.1f} Hz", fontsize=9)
+    axes[i].set_title(f"{d['label']}  ({d['type']}) : {d['sfreq']:.1f} Hz", fontsize=9)
     axes[i].tick_params(labelsize=7)
 
     # Barre verticale pour marquer le début de l'enregistrement
@@ -242,10 +238,8 @@ st.pyplot(fig)
 
 st.divider()
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ÉTAPE 3 — Statistiques comparatives
-# ─────────────────────────────────────────────────────────────────────────────
-st.header("③ Statistiques comparatives")
+## STATS
+st.header("Statistiques comparatives")
 
 stats_rows = []
 for d in signals_data:
@@ -271,47 +265,47 @@ if stats_rows:
 
     st.divider()
 
-    # ── Corrélations sur la fenêtre commune ──────────────────────────────────
-    if len(signals_data) >= 2:
-        st.header("④ Corrélations sur la fenêtre affichée")
-        st.caption("Les signaux sont interpolés sur une grille commune avant calcul.")
+    # # Corrélations sur la fenêtre commune 
+    # if len(signals_data) >= 2:
+    #     st.header("Corrélations sur la fenêtre affichée")
+    #     st.caption("Les signaux sont interpolés sur une grille commune avant calcul.")
 
-        # Grille temporelle commune = union de la fenêtre de zoom
-        t_common = np.linspace(view_start, view_end, num=1000)
+    #     # Grille temporelle commune = union de la fenêtre de zoom
+    #     t_common = np.linspace(view_start, view_end, num=1000)
 
-        signals_interp = []
-        labels_interp  = []
-        for d in signals_data:
-            mask = (d["times"] >= view_start) & (d["times"] <= view_end)
-            if mask.sum() < 2:
-                continue
-            s_interp = np.interp(t_common, d["times"][mask], d["signal"][mask])
-            signals_interp.append(normalize(s_interp))
-            labels_interp.append(d["label"])
+    #     signals_interp = []
+    #     labels_interp  = []
+    #     for d in signals_data:
+    #         mask = (d["times"] >= view_start) & (d["times"] <= view_end)
+    #         if mask.sum() < 2:
+    #             continue
+    #         s_interp = np.interp(t_common, d["times"][mask], d["signal"][mask])
+    #         signals_interp.append(normalize(s_interp))
+    #         labels_interp.append(d["label"])
 
-        if len(signals_interp) >= 2:
-            corr_rows = []
-            for i in range(len(signals_interp)):
-                for j in range(i + 1, len(signals_interp)):
-                    corr = np.corrcoef(signals_interp[i], signals_interp[j])[0, 1]
-                    corr_rows.append({
-                        "Signal A":    labels_interp[i],
-                        "Signal B":    labels_interp[j],
-                        "Corrélation": f"{corr:.3f}",
-                        "Interprétation": (
-                            "forte positive" if corr > 0.7 else
-                            "modérée positive" if corr > 0.3 else
-                            "faible" if corr > -0.3 else
-                            "modérée négative" if corr > -0.7 else
-                            "forte négative"
-                        )
-                    })
-            st.dataframe(pd.DataFrame(corr_rows), use_container_width=True, hide_index=True)
+    #     if len(signals_interp) >= 2:
+    #         corr_rows = []
+    #         for i in range(len(signals_interp)):
+    #             for j in range(i + 1, len(signals_interp)):
+    #                 corr = np.corrcoef(signals_interp[i], signals_interp[j])[0, 1]
+    #                 corr_rows.append({
+    #                     "Signal A":    labels_interp[i],
+    #                     "Signal B":    labels_interp[j],
+    #                     "Corrélation": f"{corr:.3f}",
+    #                     "Interprétation": (
+    #                         "forte positive" if corr > 0.7 else
+    #                         "modérée positive" if corr > 0.3 else
+    #                         "faible" if corr > -0.3 else
+    #                         "modérée négative" if corr > -0.7 else
+    #                         "forte négative"
+    #                     )
+    #                 })
+    #         st.dataframe(pd.DataFrame(corr_rows), use_container_width=True, hide_index=True)
 
-    st.divider()
+    #st.divider()
 
-    # ── Export ────────────────────────────────────────────────────────────────
-    st.header("⑤ Exporter")
+    #  Export 
+    st.header("Exporter")
     st.download_button(
         "Statistiques comparatives (CSV)",
         df_stats.to_csv(index=False).encode("utf-8"),

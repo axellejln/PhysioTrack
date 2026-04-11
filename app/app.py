@@ -2,7 +2,6 @@ import streamlit as st
 
 st.set_page_config(
     page_title="PhysioTrack",
-    #page_icon="🫀",
     layout="centered"
 )
 
@@ -17,16 +16,14 @@ des signaux physiologiques, sans nécessiter de compétences en programmation.
 
 ---
 
-### 👈 Choisissez un type de signal dans la barre latérale
+### Choisissez un type de signal dans la barre latérale
 
 | Page | Signal | Fonctionnalités |
 |------|--------|-----------------|
-| 🧠 EEG | Électroencéphalogramme | Import, filtrage, FFT, spectrogramme, énergie par bande |
-| ❤️ ECG | Électrocardiogramme | Import HR/IBI/ECG brut, pics R, HRV, FFT |
-| 🫀 EDA | Activité électrodermale | Import, filtrage, décomposition phasic/tonic, pics |
-| 📊 Comparaison | Multi-signaux | Synchronisation, comparaison, statistiques |
+| EEG | Électroencéphalogramme | Import, filtrage, FFT, spectrogramme, énergie par bande |
+| ECG | Électrocardiogramme | Import HR/IBI/ECG brut, pics R, HRV, FFT |
+| EDA | Activité électrodermale | Import, filtrage, décomposition phasic/tonic, pics |
+| Comparaison | Multi-signaux | Synchronisation, comparaison, statistiques |
 
----
 
-> **Formats supportés :** EDF, BDF, BrainVision, EEGLAB, FIF, CSV, TXT
 """)
