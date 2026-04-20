@@ -12,24 +12,12 @@ def plot_ecg_raw(times, signal):
     return fig
 
 
-def plot_ecg_cleaned(times, signal, r_peaks=None):
-    fig, ax = plt.subplots(figsize=(10, 3))
-    ax.plot(times, signal, color="steelblue", linewidth=0.8, label="Signal nettoyé")
-    if r_peaks is not None and len(r_peaks) > 0:
-        valid = r_peaks[r_peaks < len(times)]
-        ax.plot(times[valid], signal[valid], "v", color="crimson",
-                markersize=6, label=f"Pics R ({len(valid)})")
-    ax.set_xlabel("Temps (s)")
-    ax.set_ylabel("Amplitude")
-    ax.set_title("Signal ECG nettoyé avec pics R")
-    ax.legend(fontsize=8)
-    plt.tight_layout()
-    return fig
-
 
 def plot_rr_intervals(rr_ms):
+    # Markers seulement si peu de points pour ne pas surcharger le graphe
+    marker = "o" if len(rr_ms) < 200 else None
     fig, ax = plt.subplots(figsize=(10, 3))
-    ax.plot(rr_ms, color="steelblue", marker="o", markersize=3, linewidth=0.8)
+    ax.plot(rr_ms, color="steelblue", marker=marker, markersize=3, linewidth=0.8)
     ax.axhline(np.mean(rr_ms), color="crimson", linestyle="--",
                linewidth=1, label=f"Moyenne : {np.mean(rr_ms):.0f} ms")
     ax.set_xlabel("Battement n°")

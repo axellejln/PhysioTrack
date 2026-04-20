@@ -1,6 +1,5 @@
 import numpy as np
 
-
 def compute_fft(raw, channel_name):
     data = raw.copy().pick(channel_name).get_data()[0]
     sfreq = raw.info["sfreq"]
@@ -8,8 +7,6 @@ def compute_fft(raw, channel_name):
     freqs = np.fft.rfftfreq(n, d=1/sfreq)
     fft_values = np.abs(np.fft.rfft(data))
     return freqs, fft_values
-
-
 
 def band_power(freqs, fft_values, band):
     idx = np.logical_and(freqs >= band[0], freqs <= band[1])

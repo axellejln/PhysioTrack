@@ -3,11 +3,7 @@ import numpy as np
 import pandas as pd
 import os
 
-
-def load_eeg(filepath):
-    raw = mne.io.read_raw_edf(filepath, preload=True)
-    return raw
-
+# imports de signaux 
 def load_eeg_generic(file_path, sfreq=None, ch_names=None):
     ext = os.path.splitext(file_path)[1].lower()
     
@@ -54,13 +50,3 @@ def load_eeg_generic(file_path, sfreq=None, ch_names=None):
         raise ValueError(f"Format de fichier non supporté : {ext}")
     
     return raw
-
-
-def get_eeg_info(raw):
-    info = {
-        "sfreq": raw.info["sfreq"],
-        "n_channels": raw.info["nchan"],
-        "duration_sec": raw.times[-1],
-        "channel_names": raw.ch_names
-    }
-    return info

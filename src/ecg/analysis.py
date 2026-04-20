@@ -2,6 +2,11 @@ import neurokit2 as nk
 import numpy as np
 
 
+def filter_hr_values(hr_values, hr_times):
+    valid_mask = (hr_values >= 20) & (hr_values <= 250)
+    return hr_values[valid_mask], hr_times[valid_mask], int(np.sum(~valid_mask))
+
+
 def clean_hr(hr_values, sfreq=1):
     hr_cleaned = nk.ecg_clean(hr_values, sampling_rate=sfreq)
     return hr_cleaned
