@@ -11,7 +11,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".
 
 from src.eda.loader import load_eda
 from src.eda.analysis import analyze_eda
-from src.eda.visualization import plot_eda
+from src.eda.visualization import plot_eda, plot_eda_decomposition, plot_eda_peaks
 
 st.set_page_config(page_title="EDA - PhysioTrack", layout="centered")
 st.title("Analyse EDA")
@@ -45,6 +45,13 @@ uploaded = st.file_uploader(
 if uploaded is None:
     st.stop()
 
+# Vider les résultats si le fichier change
+if st.session_state.get("_eda_filename") != uploaded.name:
+    st.session_state.pop("eda_results", None)
+    st.session_state["_eda_filename"] = uploaded.name
+    st.session_state["_eda_zoom_start"] = 0.0
+    st.session_state["_eda_zoom_end"] = None  # sera initialisé après chargement
+
 ext = os.path.splitext(uploaded.name)[1].lower()
 with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
     tmp.write(uploaded.read())
@@ -75,6 +82,10 @@ col1.metric("Fréquence d'échantillonnage", f"{sfreq:.1f} Hz")
 col2.metric("Durée", f"{times[-1]:.1f} s")
 col3.metric("Nb d'échantillons", len(signal))
 
+# Initialiser le zoom à la durée totale si pas encore défini
+if st.session_state.get("_eda_zoom_end") is None:
+    st.session_state["_eda_zoom_end"] = float(times[-1])
+
 st.divider()
 
 ## AFFICHAGE DU SIGNAL BRUT AVEC ZOOM
@@ -98,7 +109,7 @@ with col_z2:
 with col_z3:
     st.write("")
     st.write("")
-    if st.button("🔄 Reset"):
+    if st.button("Reset"):
         st.session_state["_eda_zoom_start"] = 0.0
         st.session_state["_eda_zoom_end"] = float(times[-1])
         st.rerun()
@@ -107,52 +118,10 @@ st.session_state["_eda_zoom_start"] = zoom_start
 st.session_state["_eda_zoom_end"]   = zoom_end
 
 zoom_mask = (times >= zoom_start) & (times <= zoom_end)
-fig_raw, ax = plt.subplots(figsize=(10, 3))
-ax.plot(times[zoom_mask], signal[zoom_mask], color="steelblue", linewidth=0.8)
-ax.set_xlabel("Temps (s)")
-ax.set_ylabel("Amplitude (µS)")
-ax.set_title(f"Signal EDA brut  [{zoom_start:.0f}s – {zoom_end:.0f}s]")
-plt.tight_layout()
+fig_raw = plot_eda(signal[zoom_mask], times[zoom_mask], title=f"Signal EDA brut  [{zoom_start:.0f}s – {zoom_end:.0f}s]")
 st.pyplot(fig_raw)
 
 st.divider()
-
-# LISSAGE
-# st.subheader("Filtrage / lissage")
-
-# window_sec = st.slider(
-#     "Fenêtre de lissage (secondes)",
-#     min_value=0.1, max_value=10.0, value=1.0, step=0.1,
-#     help="Lissage par moyenne glissante"
-# )
-# window_samples = max(1, int(window_sec * sfreq))
-# signal_smooth = np.convolve(signal, np.ones(window_samples) / window_samples, mode="same")
-
-# col_l1, col_l2 = st.columns(2)
-# with col_l1:
-#     st.caption("**Signal brut**")
-#     fig_brut, ax = plt.subplots(figsize=(5, 3))
-#     ax.plot(times[zoom_mask], signal[zoom_mask], color="gray", linewidth=0.8)
-#     ax.set_xlabel("Temps (s)", fontsize=8)
-#     ax.set_ylabel("Amplitude (µS)", fontsize=8)
-#     ax.set_title("Brut", fontsize=9)
-#     ax.tick_params(labelsize=7)
-#     plt.tight_layout()
-#     st.pyplot(fig_brut)
-
-# with col_l2:
-#     st.caption(f"**Signal lissé ({window_sec:.1f}s)**")
-#     fig_lis, ax = plt.subplots(figsize=(5, 3))
-#     ax.plot(times[zoom_mask], signal_smooth[zoom_mask], color="steelblue", linewidth=0.8)
-#     ax.set_xlabel("Temps (s)", fontsize=8)
-#     ax.set_ylabel("Amplitude (µS)", fontsize=8)
-#     ax.set_title(f"Lissé ({window_sec:.1f}s)", fontsize=9)
-#     ax.tick_params(labelsize=7)
-#     plt.tight_layout()
-#     st.pyplot(fig_lis)
-
-# st.divider()
-
 
 ## DECOMPOSITION PHASIQUE / TONIQUE
 st.subheader("Décomposition phasique / tonique")
@@ -187,37 +156,15 @@ sfreq  = r["sfreq"]
 tonic  = r["tonic"]
 phasic = r["phasic"]
 
-# Graphe décomposition
-fig_decomp, axes = plt.subplots(3, 1, figsize=(10, 7), sharex=True)
-axes[0].plot(times, signal, color="gray", linewidth=0.8)
-axes[0].set_title("Signal EDA brut")
-axes[0].set_ylabel("Amplitude (µS)")
-
-axes[1].plot(times[:len(tonic)], tonic, color="steelblue", linewidth=0.8)
-axes[1].set_title("Composante tonique (SCL)")
-axes[1].set_ylabel("Amplitude (µS)")
-
-axes[2].plot(times[:len(phasic)], phasic, color="crimson", linewidth=0.8)
-axes[2].set_title("Composante phasique (SCR)")
-axes[2].set_ylabel("Amplitude (µS)")
-axes[2].set_xlabel("Temps (s)")
-
-plt.tight_layout()
+fig_decomp = plot_eda_decomposition(times, signal, tonic, phasic)
 st.pyplot(fig_decomp)
-
-# # Avertissement si valeurs phasiques négatives
-# if np.min(phasic) < 0:
-#     st.info(
-#         "ℹ️ La composante phasique contient des valeurs négatives : "
-#         "cela est normal et dû à la méthode de décomposition de NeuroKit2 sur un signal bruité. "
-#         "Seuls les **pics positifs** sont physiologiquement interprétables (réponses SCR)."
-#     )
+st.caption("Tonique (SCL) : niveau général d'éveil sur le long terme. Phasique (SCR) : réponses rapides à des stimuli spécifiques (stress, surprise, effort cognitif).")
 
 st.divider()
 
 ## DETECTION DES PICS PHASIQUES (SCR)
 st.subheader("Détection des pics phasiques (SCR)")
-st.caption("Ajustez les paramètres : les pics se mettent à jour sans relancer la décomposition.")
+st.caption("Les pics phasiques (SCR) correspondent à des réponses émotionnelles ou cognitives. Ajustez les paramètres : les pics se mettent à jour sans relancer la décomposition.")
 
 phasic_max = float(np.max(phasic)) if np.max(phasic) > 0 else 1.0
 
@@ -244,17 +191,7 @@ st.session_state["_eda_peak_dist"]   = min_dist_sec
 min_dist_samples = max(1, int(min_dist_sec * sfreq))
 peaks_idx, _ = find_peaks(phasic, height=min_height, distance=min_dist_samples)
 
-# Graphe phasic + pics
-fig_peaks, ax = plt.subplots(figsize=(10, 3))
-ax.plot(times[:len(phasic)], phasic, color="crimson", linewidth=0.8, label="Phasique")
-if len(peaks_idx) > 0:
-    ax.plot(times[peaks_idx], phasic[peaks_idx],
-            "v", color="navy", markersize=7, label=f"Pics ({len(peaks_idx)})")
-ax.set_xlabel("Temps (s)")
-ax.set_ylabel("Amplitude (µS)")
-ax.set_title("Pics phasiques détectés (SCR)")
-ax.legend()
-plt.tight_layout()
+fig_peaks = plot_eda_peaks(times, phasic, peaks_idx)
 st.pyplot(fig_peaks)
 
 # Stats des pics
@@ -269,6 +206,7 @@ if len(peaks_idx) > 0:
     c3.metric("Amplitude max (µS)", f"{np.max(peak_amps):.4f}")
     freq_pics = len(peaks_idx) / (times[-1] - times[0]) * 60
     c4.metric("Fréquence (pics/min)", f"{freq_pics:.1f}")
+    st.caption("Un seuil standard de 0.01 à 0.05 µS est recommandé dans la littérature pour la détection des SCR.")
 
     peaks_df = pd.DataFrame({
         "Pic n°":        range(1, len(peaks_idx) + 1),

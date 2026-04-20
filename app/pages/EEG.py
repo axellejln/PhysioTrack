@@ -44,6 +44,13 @@ uploaded_file = st.file_uploader(
 if uploaded_file is None:
     st.stop()
 
+# Vider les résultats si le fichier change
+if st.session_state.get("_eeg_filename") != uploaded_file.name:
+    st.session_state.pop("eeg_results", None)
+    st.session_state["_eeg_filename"] = uploaded_file.name
+    st.session_state["_fft_zoom_min"] = 0.0
+    st.session_state["_fft_zoom_max"] = 0.0
+
 ext = os.path.splitext(uploaded_file.name)[1].lower()
 
 ## CONFIGURATION POUR CSV/TXT
@@ -90,7 +97,7 @@ if ext in [".csv", ".txt"]:
         st.stop()
 
     # Fréquence d'échantillonnage 
-    st.subheader("② Fréquence d'échantillonnage")
+    st.subheader("Fréquence d'échantillonnage")
     if has_time_col:
         sfreq = 1.0 / np.mean(np.diff(first_col))
         st.success(f"Fréquence calculée automatiquement depuis la colonne temps : **{sfreq:.2f} Hz**")
@@ -105,7 +112,7 @@ if ext in [".csv", ".txt"]:
 
     # Rembobiner pour le chargement
     uploaded_file = io.BytesIO(file_bytes)
-    uploaded_file.name = f"signal{ext}"  # attribut nécessaire pour os.path.splitext
+    uploaded_file.name = f"signal{ext}"
 
 ## Chargement signal 
 with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
@@ -116,12 +123,12 @@ with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
 
 try:
     raw = load_eeg_generic(tmp_path, sfreq=sfreq, ch_names=ch_names_input)
-    st.success("✅ Fichier chargé avec succès !")
+    st.success("Fichier chargé avec succès !")
 except Exception as e:
     st.error(f"Erreur lors du chargement : {e}")
     st.stop()
 
-# Informations du signal
+## Informations du signal
 st.subheader("Informations du signal")
 col1, col2, col3 = st.columns(3)
 col1.metric("Canaux", len(raw.ch_names))
@@ -131,7 +138,6 @@ col3.metric("Fréquence d'échantillonnage", f"{raw.info['sfreq']:.0f} Hz")
 st.divider()
 
 ## VISUALISATION MULTICANAL
-
 st.header("Visualisation de plusieurs canaux")
 
 selected_channels = st.multiselect(
@@ -169,12 +175,14 @@ with col_f2:
     fmax = st.slider("Fréquence max du filtre (Hz)", 1, nyquist - 1, min(40, nyquist - 1))
 
 if st.button("Analyser le canal"):
+    if fmin >= fmax:
+        st.error("La fréquence min doit être inférieure à la fréquence max.")
+        st.stop()
     raw_segment = raw.copy().crop(tmin, tmax).pick(channel)
     raw_filtered = bandpass_filter(raw_segment, fmin, fmax)
     freqs, fft_vals = compute_fft(raw_filtered, channel)
     band_energy = compute_band_energy(freqs, fft_vals)
 
-    # Stocker dans session_state → survit aux reruns du zoom
     st.session_state["eeg_results"] = {
         "raw": raw,
         "raw_filtered": raw_filtered,
@@ -186,11 +194,10 @@ if st.button("Analyser le canal"):
         "fft_vals": fft_vals,
         "band_energy": band_energy,
     }
-    # Reset zoom FFT à chaque nouvelle analyse (clés internes sans widget associé)
     st.session_state["_fft_zoom_min"] = 0.0
     st.session_state["_fft_zoom_max"] = float(freqs[-1])
 
-## Affichage des résultats (signal filtré, FFT, énergie par bande)
+## Affichage des résultats
 if "eeg_results" not in st.session_state:
     st.stop()
 
@@ -205,28 +212,30 @@ freqs        = r["freqs"]
 fft_vals     = r["fft_vals"]
 band_energy  = r["band_energy"]
 
-#  Signal brut + filtré côte à côte 
+## Signal brut + filtré côte à côte
 st.subheader("Signal brut  vs  Signal filtré")
+st.caption("Comparez l'effet du filtre passe-bande sur le signal. Les deux graphes sont à la même échelle.")
 
 col_sig1, col_sig2 = st.columns(2)
 
 with col_sig1:
     st.caption("**Signal brut**")
-    fig_raw = plot_signal(raw.copy().pick(channel), channel, color="steelblue")
+    fig_raw, ylim_raw = plot_signal(raw.copy().pick(channel), channel, color="steelblue")
     st.pyplot(fig_raw)
 
 with col_sig2:
     st.caption(f"**Signal filtré ({fmin}–{fmax} Hz)**")
-    fig_filt = plot_signal(
+    fig_filt, _ = plot_signal(
         raw_filtered, channel,
         original_times=raw_filtered.times + tmin,
-        color="crimson"
+        color="crimson",
+        ylim=ylim_raw
     )
     st.pyplot(fig_filt)
 
 st.divider()
 
-# FFT avec zoom interactif et bandes EEG colorées
+## FFT avec zoom interactif et bandes EEG colorées
 st.subheader("FFT : Spectre de fréquences")
 
 col_z1, col_z2, col_z3 = st.columns([2, 2, 1])
@@ -249,35 +258,30 @@ with col_z2:
 with col_z3:
     st.write("")
     st.write("")
-    if st.button("🔄 Reset"):
-        # Clés de stockage distinctes des widgets : pas d'erreur Streamlit
+    if st.button("Reset"):
         st.session_state["_fft_zoom_min"] = 0.0
         st.session_state["_fft_zoom_max"] = float(freqs[-1])
         st.rerun()
 
-# Persister les valeurs courantes pour le prochain rerun
 st.session_state["_fft_zoom_min"] = fft_zoom_min
 st.session_state["_fft_zoom_max"] = fft_zoom_max
-
-# Appliquer le zoom
-zoom_mask  = (freqs >= fft_zoom_min) & (freqs <= fft_zoom_max)
-freqs_zoom = freqs[zoom_mask]
-fft_zoom   = fft_vals[zoom_mask]
 
 fig_fft = plot_fft(freqs, fft_vals, channel,
                    zoom_min=fft_zoom_min, zoom_max=fft_zoom_max)
 st.pyplot(fig_fft)
+st.caption("Décompose le signal en fréquences. Les zones colorées indiquent les bandes cérébrales : delta (1-4 Hz) : sommeil, theta (4-8 Hz) : mémoire, alpha (8-12 Hz) : repos, beta (12-30 Hz) : concentration, gamma (30-40 Hz) : traitement sensoriel.")
 
 st.divider()
 
-# Spectrogramme limité à fmax 
+## Spectrogramme
 st.subheader("Spectrogramme")
 fig_spec = plot_spectrogram(raw_filtered, channel, fmax=fmax)
 st.pyplot(fig_spec)
+st.caption("Montre comment le contenu fréquentiel évolue dans le temps. Utile pour détecter des transitions (ex : apparition d'alpha quand le sujet ferme les yeux).")
 
 st.divider()
 
-# Énergie par bande + tableau côte à côte 
+## Énergie par bande + tableau côte à côte
 st.subheader("Énergie par bande de fréquence")
 
 col_b1, col_b2 = st.columns([2, 1])
@@ -291,14 +295,13 @@ with col_b2:
     )
     df_band["Énergie"] = df_band["Énergie"].round(2)
     st.dataframe(df_band, use_container_width=True, hide_index=True)
-
+    st.caption("Les bandes à 0 sont hors de la plage du filtre appliqué.")
 
 st.divider()
 
-# ── Export ────────────────────────────────────────────────────────────────────
+## Export
 st.header("Exporter les résultats")
 
-# Signal filtré
 data_filt_export = raw_filtered.copy().get_data()[0]
 times_filt_export = raw_filtered.times + tmin
 df_signal = pd.DataFrame({
@@ -313,7 +316,6 @@ st.download_button(
     use_container_width=True
 )
 
-# Énergie par bande
 df_band_export = pd.DataFrame(
     list(band_energy.items()),
     columns=["Bande", "Energie"]
@@ -327,7 +329,6 @@ st.download_button(
     use_container_width=True
 )
 
-# FFT
 df_fft_export = pd.DataFrame({
     "frequence_hz": freqs,
     "amplitude": fft_vals

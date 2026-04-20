@@ -265,46 +265,7 @@ if stats_rows:
 
     st.divider()
 
-    # # Corrélations sur la fenêtre commune 
-    # if len(signals_data) >= 2:
-    #     st.header("Corrélations sur la fenêtre affichée")
-    #     st.caption("Les signaux sont interpolés sur une grille commune avant calcul.")
-
-    #     # Grille temporelle commune = union de la fenêtre de zoom
-    #     t_common = np.linspace(view_start, view_end, num=1000)
-
-    #     signals_interp = []
-    #     labels_interp  = []
-    #     for d in signals_data:
-    #         mask = (d["times"] >= view_start) & (d["times"] <= view_end)
-    #         if mask.sum() < 2:
-    #             continue
-    #         s_interp = np.interp(t_common, d["times"][mask], d["signal"][mask])
-    #         signals_interp.append(normalize(s_interp))
-    #         labels_interp.append(d["label"])
-
-    #     if len(signals_interp) >= 2:
-    #         corr_rows = []
-    #         for i in range(len(signals_interp)):
-    #             for j in range(i + 1, len(signals_interp)):
-    #                 corr = np.corrcoef(signals_interp[i], signals_interp[j])[0, 1]
-    #                 corr_rows.append({
-    #                     "Signal A":    labels_interp[i],
-    #                     "Signal B":    labels_interp[j],
-    #                     "Corrélation": f"{corr:.3f}",
-    #                     "Interprétation": (
-    #                         "forte positive" if corr > 0.7 else
-    #                         "modérée positive" if corr > 0.3 else
-    #                         "faible" if corr > -0.3 else
-    #                         "modérée négative" if corr > -0.7 else
-    #                         "forte négative"
-    #                     )
-    #                 })
-    #         st.dataframe(pd.DataFrame(corr_rows), use_container_width=True, hide_index=True)
-
-    #st.divider()
-
-    #  Export 
+    #  Export
     st.header("Exporter")
     st.download_button(
         "Statistiques comparatives (CSV)",
